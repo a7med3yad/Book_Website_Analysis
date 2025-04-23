@@ -37,57 +37,74 @@ def scrape_books():
 
 df = scrape_books()
 
-st.subheader("📄 Sample of Scraped Data")
-st.dataframe(df.head(20))
+# Sidebar options
+st.sidebar.header("📋 Filters & Options")
+show_data = st.sidebar.checkbox("Show Raw Data", value=True)
+selected_chart = st.sidebar.selectbox("📈 Choose a Chart", [
+    "Price Distribution", 
+    "Rating Distribution", 
+    "Boxplot (Price vs Rating)", 
+    "Top 10 Expensive Books", 
+    "Average Price per Rating",
+    "Scatter Plot: Rating vs. Price"
+])
+price_range = st.sidebar.slider("💰 Filter by Price", float(df['price'].min()), float(df['price'].max()), (float(df['price'].min()), float(df['price'].max())))
+rating_filter = st.sidebar.multiselect("⭐ Filter by Rating", options=sorted(df['rating'].unique()), default=sorted(df['rating'].unique()))
 
-st.subheader("📊 Distribution of Book Prices")
-fig1, ax1 = plt.subplots()
-sns.histplot(df['price'], bins=30, kde=True, color='teal', ax=ax1)
-ax1.set_xlabel("Price (£)")
-ax1.set_ylabel("Number of Books")
-st.pyplot(fig1)
+# Apply filters
+filtered_df = df[(df['price'] >= price_range[0]) & (df['price'] <= price_range[1]) & (df['rating'].isin(rating_filter))]
 
-st.subheader("⭐ Rating Distribution")
-fig2, ax2 = plt.subplots()
-sns.countplot(x='rating', data=df, palette='viridis', ax=ax2)
-ax2.set_xlabel("Rating (Stars)")
-st.pyplot(fig2)
+if show_data:
+    st.subheader("📄 Filtered Data Sample")
+    st.dataframe(filtered_df.head(20))
 
-st.subheader("💸 Book Prices by Rating")
-fig3, ax3 = plt.subplots()
-sns.boxplot(x='rating', y='price', data=df, palette='Set2', ax=ax3)
-ax3.set_xlabel("Rating")
-ax3.set_ylabel("Price (£)")
-st.pyplot(fig3)
+# Chart display
+st.subheader(f"📊 {selected_chart}")
+fig, ax = plt.subplots()
 
-st.subheader("💰 Top 10 Most Expensive Books")
-top_10 = df.nlargest(10, 'price')
-fig4, ax4 = plt.subplots()
-sns.barplot(x='price', y='title', data=top_10, palette='rocket', ax=ax4)
-st.pyplot(fig4)
+if selected_chart == "Price Distribution":
+    sns.histplot(filtered_df['price'], bins=30, kde=True, color='teal', ax=ax)
+    ax.set_xlabel("Price (£)")
+    ax.set_ylabel("Number of Books")
 
-st.subheader("📈 Average Price per Rating")
-avg_price_per_rating = df.groupby('rating')['price'].mean()
-fig5, ax5 = plt.subplots()
-avg_price_per_rating.plot(kind='bar', color=sns.color_palette('crest', len(avg_price_per_rating)), ax=ax5)
-ax5.set_xlabel("Rating")
-ax5.set_ylabel("Average Price (£)")
-st.pyplot(fig5)
+elif selected_chart == "Rating Distribution":
+    sns.countplot(x='rating', data=filtered_df, palette='viridis', ax=ax)
+    ax.set_xlabel("Rating (Stars)")
+    ax.set_ylabel("Count")
 
-st.subheader("🔎 Scatter Plot: Rating vs. Price")
-fig6, ax6 = plt.subplots()
-sns.scatterplot(x='rating', y='price', data=df, ax=ax6)
-ax6.set_xlabel("Rating (Stars)")
-ax6.set_ylabel("Price (£)")
-st.pyplot(fig6)
+elif selected_chart == "Boxplot (Price vs Rating)":
+    sns.boxplot(x='rating', y='price', data=filtered_df, palette='Set2', ax=ax)
+    ax.set_xlabel("Rating")
+    ax.set_ylabel("Price (£)")
 
+elif selected_chart == "Top 10 Expensive Books":
+    top_10 = filtered_df.nlargest(10, 'price')
+    sns.barplot(x='price', y='title', data=top_10, palette='rocket', ax=ax)
+    ax.set_xlabel("Price (£)")
+    ax.set_ylabel("Book Title")
+
+elif selected_chart == "Average Price per Rating":
+    avg_price = filtered_df.groupby('rating')['price'].mean()
+    avg_price.plot(kind='bar', color=sns.color_palette('crest', len(avg_price)), ax=ax)
+    ax.set_xlabel("Rating")
+    ax.set_ylabel("Average Price (£)")
+
+elif selected_chart == "Scatter Plot: Rating vs. Price":
+    sns.scatterplot(x='rating', y='price', data=filtered_df, ax=ax)
+    ax.set_xlabel("Rating (Stars)")
+    ax.set_ylabel("Price (£)")
+
+st.pyplot(fig)
+
+# Health-related books section
 st.subheader("📚 Books with 'Health' in the Title")
-health_books = [title for title in df['title'] if re.search(r'health', title, re.IGNORECASE)]
+health_books = [title for title in filtered_df['title'] if re.search(r'health', title, re.IGNORECASE)]
 if health_books:
     for title in health_books:
         st.write("- ", title)
 else:
     st.write("No books found with 'health' in the title.")
 
-correlation = df['rating'].corr(df['price'])
+# Correlation
+correlation = filtered_df['rating'].corr(filtered_df['price'])
 st.markdown(f"**Correlation between rating and price:** `{correlation:.2f}`")
