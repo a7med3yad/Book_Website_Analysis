@@ -1,123 +1,86 @@
-
+import streamlit as st
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 import re
-import seaborn as sns
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Optional: Uncomment these lines only if you have MongoDB setup locally or on the cloud
-# from pymongo import MongoClient
-
-# Configure seaborn
-sns.set_style('whitegrid')
-plt.rcParams['figure.figsize'] = (10, 6)
-
-# Web scraping setup
-print("Starting to scrape book data...")
+st.set_page_config(layout="wide")
+st.title("📚 Book Scraper from books.toscrape.com")
 
 BASE_URL = 'http://books.toscrape.com/catalogue/page-{}.html'
-books = []
 
-# Scrape all 50 pages
-for page in range(1, 51):
-    url = BASE_URL.format(page)
-    response = requests.get(url)
-    
-    if response.status_code != 200:
-        print(f"Failed to load page {page}")
-        continue
-    
-    soup = BeautifulSoup(response.text, 'html.parser')
-    items = soup.find_all('article', class_='product_pod')
-    
-    for item in items:
-        title = item.h3.a['title']
-        price = item.find('p', class_='price_color').text
-        availability = item.find('p', class_='instock availability').text.strip()
-        rating_class = item.p['class'][1]
-        rating = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five'].index(rating_class) if rating_class in ['One', 'Two', 'Three', 'Four', 'Five'] else 0
-        
-        books.append({
-            'title': title,
-            'price': price,
-            'availability': availability,
-            'rating': rating
-        })
+@st.cache_data
+def scrape_books():
+    all_books = []
+    for page_num in range(1, 51):
+        url = BASE_URL.format(page_num)
+        response = requests.get(url)
+        if response.status_code != 200:
+            continue
+        soup = BeautifulSoup(response.text, 'html.parser')
+        book_items = soup.find_all('article', class_='product_pod')
+        for book in book_items:
+            title = book.h3.a['title']
+            price = book.find('p', class_='price_color').text
+            availability = book.find('p', class_='instock availability').text.strip()
+            rating_class = book.p['class'][1]
+            rating = {'One':1, 'Two':2, 'Three':3, 'Four':4, 'Five':5}.get(rating_class, 0)
+            all_books.append({
+                'title': title,
+                'price': float(re.sub(r'[^\d\.]', '', price)),
+                'availability': availability,
+                'rating': rating
+            })
+    return pd.DataFrame(all_books)
 
-print(f"Total books scraped: {len(books)}")
+df = scrape_books()
 
-# DataFrame creation and cleaning
-df = pd.DataFrame(books)
-df['price'] = df['price'].apply(lambda x: float(re.sub(r'[^\d.]', '', x)))
+st.subheader("📄 Sample of Scraped Data")
+st.dataframe(df.head(20))
 
-# Save cleaned data
-df.to_csv('books_cleaned.csv', index=False)
-print("Data saved to books_cleaned.csv")
+st.subheader("📊 Distribution of Book Prices")
+fig1, ax1 = plt.subplots()
+sns.histplot(df['price'], bins=30, kde=True, color='teal', ax=ax1)
+ax1.set_xlabel("Price (£)")
+ax1.set_ylabel("Number of Books")
+st.pyplot(fig1)
 
-# Books with 'health' in the title
-health_books = df[df['title'].str.contains('health', flags=re.IGNORECASE, regex=True)]
-print("Books containing 'health' in the title:")
-for title in health_books['title']:
-    print(f"- {title}")
+st.subheader("⭐ Rating Distribution")
+fig2, ax2 = plt.subplots()
+sns.countplot(x='rating', data=df, palette='viridis', ax=ax2)
+ax2.set_xlabel("Rating (Stars)")
+st.pyplot(fig2)
 
-# Visualizations
-plt.figure()
-sns.histplot(df['price'], bins=30, kde=True, color='teal')
-plt.title('Distribution of Book Prices')
-plt.xlabel('Price (£)')
-plt.ylabel('Count')
-plt.show()
+st.subheader("💸 Book Prices by Rating")
+fig3, ax3 = plt.subplots()
+sns.boxplot(x='rating', y='price', data=df, palette='Set2', ax=ax3)
+ax3.set_xlabel("Rating")
+ax3.set_ylabel("Price (£)")
+st.pyplot(fig3)
 
-plt.figure()
-sns.countplot(x='rating', data=df, palette='viridis')
-plt.title('Book Ratings Distribution')
-plt.xlabel('Rating')
-plt.ylabel('Count')
-plt.xticks(ticks=[0,1,2,3,4], labels=['1★','2★','3★','4★','5★'])
-plt.show()
+st.subheader("💰 Top 10 Most Expensive Books")
+top_10 = df.nlargest(10, 'price')
+fig4, ax4 = plt.subplots()
+sns.barplot(x='price', y='title', data=top_10, palette='rocket', ax=ax4)
+st.pyplot(fig4)
 
-plt.figure()
-sns.boxplot(x='rating', y='price', data=df, palette='Set2')
-plt.title('Price by Book Rating')
-plt.xlabel('Rating')
-plt.ylabel('Price (£)')
-plt.xticks(ticks=[0,1,2,3,4], labels=['1★','2★','3★','4★','5★'])
-plt.show()
+st.subheader("📈 Average Price per Rating")
+avg_price_per_rating = df.groupby('rating')['price'].mean()
+fig5, ax5 = plt.subplots()
+avg_price_per_rating.plot(kind='bar', color=sns.color_palette('crest', len(avg_price_per_rating)), ax=ax5)
+ax5.set_xlabel("Rating")
+ax5.set_ylabel("Average Price (£)")
+st.pyplot(fig5)
 
-top_books = df.nlargest(10, 'price')
-plt.figure()
-sns.barplot(x='price', y='title', data=top_books, palette='rocket')
-plt.title('Top 10 Most Expensive Books')
-plt.xlabel('Price (£)')
-plt.ylabel('Book Title')
-plt.tight_layout()
-plt.show()
+st.subheader("📚 Books with 'Health' in the Title")
+health_books = [title for title in df['title'] if re.search(r'health', title, re.IGNORECASE)]
+if health_books:
+    for title in health_books:
+        st.write("- ", title)
+else:
+    st.write("No books found with 'health' in the title.")
 
-avg_price = df.groupby('rating')['price'].mean()
-print("Average price per rating:")
-print(avg_price)
-
-plt.figure()
-avg_price.plot(kind='bar', color=sns.color_palette('crest', len(avg_price)))
-plt.title('Average Price by Rating')
-plt.xlabel('Rating')
-plt.ylabel('Average Price (£)')
-plt.show()
-
-plt.figure()
-sns.scatterplot(x='rating', y='price', data=df)
-plt.title('Rating vs Price')
-plt.xlabel('Rating')
-plt.ylabel('Price (£)')
-plt.show()
-
-# MongoDB Section (Optional - Uncomment if using)
-# client = MongoClient("your_mongodb_connection_string")
-# db = client["web_scraping_db"]
-# collection = db["scraped_data"]
-# collection.insert_many(df.to_dict('records'))
-# print("Data successfully inserted into MongoDB")
-
-# for item in collection.find().limit(5):
-#     print(item)
+correlation = df['rating'].corr(df['price'])
+st.markdown(f"**Correlation between rating and price:** `{correlation:.2f}`")
