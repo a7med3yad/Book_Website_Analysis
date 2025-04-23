@@ -74,6 +74,13 @@ ax5.set_xlabel("Rating")
 ax5.set_ylabel("Average Price (£)")
 st.pyplot(fig5)
 
+st.subheader("🔎 Scatter Plot: Rating vs. Price")
+fig6, ax6 = plt.subplots()
+sns.scatterplot(x='rating', y='price', data=df, ax=ax6)
+ax6.set_xlabel("Rating (Stars)")
+ax6.set_ylabel("Price (£)")
+st.pyplot(fig6)
+
 st.subheader("📚 Books with 'Health' in the Title")
 health_books = [title for title in df['title'] if re.search(r'health', title, re.IGNORECASE)]
 if health_books:
