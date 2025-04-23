@@ -1,10 +1,13 @@
+
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import re
 import seaborn as sns
 import matplotlib.pyplot as plt
-from pymongo import MongoClient
+
+# Optional: Uncomment these lines only if you have MongoDB setup locally or on the cloud
+# from pymongo import MongoClient
 
 # Configure seaborn
 sns.set_style('whitegrid')
@@ -59,7 +62,6 @@ for title in health_books['title']:
     print(f"- {title}")
 
 # Visualizations
-# Price distribution
 plt.figure()
 sns.histplot(df['price'], bins=30, kde=True, color='teal')
 plt.title('Distribution of Book Prices')
@@ -67,7 +69,6 @@ plt.xlabel('Price (£)')
 plt.ylabel('Count')
 plt.show()
 
-# Rating distribution
 plt.figure()
 sns.countplot(x='rating', data=df, palette='viridis')
 plt.title('Book Ratings Distribution')
@@ -76,7 +77,6 @@ plt.ylabel('Count')
 plt.xticks(ticks=[0,1,2,3,4], labels=['1★','2★','3★','4★','5★'])
 plt.show()
 
-# Price vs Rating boxplot
 plt.figure()
 sns.boxplot(x='rating', y='price', data=df, palette='Set2')
 plt.title('Price by Book Rating')
@@ -85,7 +85,6 @@ plt.ylabel('Price (£)')
 plt.xticks(ticks=[0,1,2,3,4], labels=['1★','2★','3★','4★','5★'])
 plt.show()
 
-# Top 10 most expensive books
 top_books = df.nlargest(10, 'price')
 plt.figure()
 sns.barplot(x='price', y='title', data=top_books, palette='rocket')
@@ -95,7 +94,6 @@ plt.ylabel('Book Title')
 plt.tight_layout()
 plt.show()
 
-# Average price per rating
 avg_price = df.groupby('rating')['price'].mean()
 print("Average price per rating:")
 print(avg_price)
@@ -107,7 +105,6 @@ plt.xlabel('Rating')
 plt.ylabel('Average Price (£)')
 plt.show()
 
-# Rating vs Price scatterplot
 plt.figure()
 sns.scatterplot(x='rating', y='price', data=df)
 plt.title('Rating vs Price')
@@ -115,13 +112,12 @@ plt.xlabel('Rating')
 plt.ylabel('Price (£)')
 plt.show()
 
-# MongoDB Integration
-client = MongoClient("mongodb+srv://MohamedFathy:MohamedFathy5656@cluster0.lkyzclf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-db = client["web_scraping_db"]
-collection = db["scraped_data"]
-collection.insert_many(df.to_dict('records'))
-print("Data successfully inserted into MongoDB")
+# MongoDB Section (Optional - Uncomment if using)
+# client = MongoClient("your_mongodb_connection_string")
+# db = client["web_scraping_db"]
+# collection = db["scraped_data"]
+# collection.insert_many(df.to_dict('records'))
+# print("Data successfully inserted into MongoDB")
 
-# Show some sample data from MongoDB
-for item in collection.find().limit(5):
-    print(item)
+# for item in collection.find().limit(5):
+#     print(item)
